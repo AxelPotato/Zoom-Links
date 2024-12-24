@@ -3,7 +3,6 @@ const express = require('express');
 const axios = require('axios');
 const path = require('path');
 const session = require('express-session');
-const fs = require('fs'); // to read users.json
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -12,30 +11,20 @@ const port = process.env.PORT || 3000;
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// Parse URL-encoded bodies (for the login form)
+// Parse URL-encoded bodies (for login form)
 app.use(express.urlencoded({ extended: true }));
 
-// Simple session config (in-memory store)
+// Session config (in-memory) — in production, use a better store
 app.use(
   session({
-    secret: 'your-secret-key-here', // in production, use a strong secret in env var
+    secret: 'your-secret-key-here', // or from process.env
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false } // 'false' for HTTP; set to true if behind HTTPS
+    cookie: { secure: false }, // set to true if behind HTTPS
   })
 );
 
-// ===== READ USERS JSON =====
-let usersData = { users: [] };
-
-try {
-  const data = fs.readFileSync(path.join(__dirname, 'users.json'), 'utf8');
-  usersData = JSON.parse(data);
-} catch (err) {
-  console.error('Error reading users.json:', err);
-}
-
-// ===== UTILITY: GET ZOOM ACCESS TOKEN (Server-to-Server OAuth) =====
+// ===== ZOOM TOKEN (Server-to-Server OAuth) =====
 async function getZoomAccessToken() {
   const tokenUrl = `https://zoom.us/oauth/token?grant_type=account_credentials&account_id=${process.env.ZOOM_ACCOUNT_ID}`;
   const authHeader = `Basic ${Buffer.from(
@@ -61,15 +50,15 @@ async function getAllLicensedUsers(accessToken) {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     const allUsers = response.data.users || [];
-    // Keep only licensed (type=2) users
-    return allUsers.filter(u => u.type === 2);
+    // Only licensed (type=2)
+    return allUsers.filter((u) => u.type === 2);
   } catch (error) {
     console.error('Error fetching users:', error.response?.data || error);
     throw error;
   }
 }
 
-// ===== FETCH USER MEETINGS =====
+// ===== FETCH MEETINGS FOR A USER =====
 async function getUserMeetings(accessToken, userId) {
   const url = `https://api.zoom.us/v2/users/${userId}/meetings?page_size=300`;
   try {
@@ -83,7 +72,7 @@ async function getUserMeetings(accessToken, userId) {
   }
 }
 
-// ===== GET ALL LIVE MEETINGS (ONE CALL) =====
+// ===== LIST LIVE MEETINGS (ONE CALL) =====
 async function getLiveMeetingsSet(accessToken) {
   const url = 'https://api.zoom.us/v2/metrics/meetings?type=live&page_size=30';
   try {
@@ -105,12 +94,12 @@ async function getLiveMeetingsSet(accessToken) {
   }
 }
 
-// ===== AUTH HELPER FUNCTION =====
+// ===== AUTH CHECK =====
 function isAuthenticated(req) {
   return req.session && req.session.user;
 }
 
-// ===== PROTECT MIDDLEWARE =====
+// ===== MIDDLEWARE: REQUIRE LOGIN =====
 function requireAuth(req, res, next) {
   if (!isAuthenticated(req)) {
     return res.redirect('/login');
@@ -120,33 +109,31 @@ function requireAuth(req, res, next) {
 
 // ===== ROUTES =====
 
-// (A) LOGIN PAGE (GET)
+// (A) GET /LOGIN => Show Login Page
 app.get('/login', (req, res) => {
-  // If already authenticated, skip login
   if (isAuthenticated(req)) return res.redirect('/');
   res.render('login', { error: null });
 });
 
-// (B) LOGIN FORM (POST)
+// (B) POST /LOGIN => Check Credentials
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
 
-  // find user in users.json
-  const userRecord = usersData.users.find(
-    (u) => u.username === username && u.password === password
-  );
-
-  if (!userRecord) {
-    // invalid credentials
+  // Compare with env vars
+  if (
+    username === process.env.ADMIN_USER &&
+    password === process.env.ADMIN_PASS
+  ) {
+    // Valid
+    req.session.user = { username: username };
+    return res.redirect('/');
+  } else {
+    // Invalid
     return res.render('login', { error: 'Invalid username or password' });
   }
-
-  // set session
-  req.session.user = { username: userRecord.username };
-  return res.redirect('/');
 });
 
-// (C) LOGOUT
+// (C) GET /LOGOUT => End Session
 app.get('/logout', (req, res) => {
   req.session.destroy((err) => {
     if (err) console.error('Session destroy error:', err);
@@ -154,7 +141,7 @@ app.get('/logout', (req, res) => {
   });
 });
 
-// (D) MAIN ROUTE (PROTECTED) => LIST NO-FIXED-TIME MEETINGS
+// (D) GET / => Protected Zoom Meetings Page
 app.get('/', requireAuth, async (req, res) => {
   let accessToken;
   try {
@@ -170,7 +157,7 @@ app.get('/', requireAuth, async (req, res) => {
     return res.status(500).send('Failed to get licensed users.');
   }
 
-  // Get set of all live meeting IDs
+  // One call for all live meeting IDs
   const liveMeetingsSet = await getLiveMeetingsSet(accessToken);
 
   const usersData = [];
@@ -183,10 +170,10 @@ app.get('/', requireAuth, async (req, res) => {
       continue;
     }
 
-    // Filter for "No Fixed Time" recurring meetings only: type=3
+    // Only "No Fixed Time" => type=3
     const noFixedTimeMeetings = allMeetings
-      .filter(m => m.type === 3)
-      .map(m => {
+      .filter((m) => m.type === 3)
+      .map((m) => {
         const isLive = liveMeetingsSet.has(String(m.id));
         return {
           meetingId: m.id,
@@ -196,8 +183,11 @@ app.get('/', requireAuth, async (req, res) => {
         };
       });
 
-    // If >=2 are live, mark user as "in use"
-    const liveCount = noFixedTimeMeetings.reduce((count, m) => (m.isLive ? count + 1 : count), 0);
+    // Mark user as in use if >=2 are live
+    const liveCount = noFixedTimeMeetings.reduce(
+      (count, m) => (m.isLive ? count + 1 : count),
+      0
+    );
     const isAccountInUse = liveCount >= 2;
 
     usersData.push({
@@ -208,7 +198,6 @@ app.get('/', requireAuth, async (req, res) => {
     });
   }
 
-  // Render index.ejs (the main page listing the no-fixed-time meetings)
   res.render('index', { usersData });
 });
 
