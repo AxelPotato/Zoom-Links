@@ -1,244 +1,315 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <title>Giving School Zoom Links Watcher</title>
-    <style>
-      /* Global styles */
-      body {
-        font-family: Arial, sans-serif;
-        margin: 0;
-        padding: 0;
-        background: #f9f9f9;
-        color: #333;
-      }
-      h1 {
-        text-align: center;
-        padding: 20px;
-        margin: 0;
-        background: #394264;
-        color: #fff;
-      }
-      
-      /* Container to wrap content */
-      .container {
-        max-width: 1000px;
-        margin: 0 auto;
-        padding: 20px;
-      }
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Giving School Zoom Links Watcher</title>
+  <style>
+    /* Global Styles */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f9f9f9;
+      color: #333;
+    }
 
-      /* Account “card” or “box” */
-      .account-box {
-        background: #fff;
-        border: 1px solid #ddd;
-        border-radius: 6px;
-        margin-bottom: 20px;
-        padding: 15px;
-      }
-      
+    h1 {
+      text-align: center;
+      padding: 20px;
+      margin: 0;
+      background: #394264;
+      color: #fff;
+    }
+
+    /* Container */
+    .container {
+      max-width: 1000px;
+      margin: 20px auto;
+      padding: 20px;
+    }
+
+    /* Account Box */
+    .account-box {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      margin-bottom: 25px;
+      padding: 20px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .account-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 15px;
+    }
+
+    .account-name {
+      font-weight: 600;
+      font-size: 1.2em;
+    }
+
+    .status-badge {
+      font-weight: bold;
+      padding: 6px 12px;
+      border-radius: 20px;
+      margin-left: 10px;
+      text-transform: uppercase;
+      font-size: 0.9em;
+    }
+
+    .in-use {
+      background: #f44336;
+      color: #fff;
+    }
+
+    .not-in-use {
+      background: #bbb;
+      color: #fff;
+    }
+
+    /* Table Styling */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th, td {
+      padding: 12px 15px;
+      text-align: left;
+    }
+
+    th {
+      background: #394264;
+      color: #fff;
+      font-size: 1em;
+    }
+
+    tr:nth-child(even) {
+      background: #f2f2f2;
+    }
+
+    tr:hover {
+      background: #e9e9e9;
+    }
+
+    /* Status Labels */
+    .available {
+      color: #07a35a;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+
+    .busy {
+      color: #f44336;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+
+    /* Buttons */
+    .join-button-container {
+      display: inline-flex;
+      gap: 8px;
+    }
+
+    .join-button, .copy-button {
+      font-size: 0.9em;
+      padding: 6px 14px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+      text-decoration: none;
+      color: #fff;
+    }
+
+    .join-button {
+      background: #28a745; /* Green */
+    }
+
+    .join-button:hover {
+      background: #218838;
+    }
+
+    .copy-button {
+      background: #17a2b8; /* Light Blue */
+    }
+
+    .copy-button:hover {
+      background: #138496;
+    }
+
+    /* Toast Notification */
+    #toast {
+      position: fixed;
+      left: 50%;
+      bottom: 30px;
+      transform: translateX(-50%);
+      background: rgba(51, 51, 51, 0.9);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 4px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease, bottom 0.3s ease;
+      z-index: 9999;
+      font-size: 0.95em;
+    }
+
+    #toast.show {
+      opacity: 1;
+      bottom: 50px;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 600px) {
       .account-header {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 10px;
-      }
-      .account-header .account-name {
-        font-weight: 600;
-        font-size: 1.1em;
-      }
-      .status-badge {
-        font-weight: bold;
-        padding: 4px 8px;
-        border-radius: 4px;
-        margin-left: 10px;
-      }
-      .in-use {
-        background: #f44336;
-        color: #fff;
-      }
-      .not-in-use {
-        background: #bbb;
-        color: #fff;
+        flex-direction: column;
+        align-items: flex-start;
       }
 
-      /* Table styling */
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 10px;
-      }
-      th {
-        background: #394264;
-        color: #fff;
+      th, td {
         padding: 10px;
-        text-align: left;
-      }
-      td {
-        background: #fff;
-        padding: 10px;
-        border-bottom: 1px solid #eee;
-      }
-      tr:last-child td {
-        border-bottom: none;
       }
 
-      .live {
-        color: #07a35a;
-        font-weight: bold;
-      }
-      .not-live {
-        color: #999;
-        font-weight: normal;
-      }
-
-      /* Buttons/links */
       .join-button-container {
-        display: inline-flex;
-        gap: 6px;
-      }
-      .join-button-container a,
-      .join-button-container button {
-        font-size: 0.9em;
-        padding: 5px 10px;
-        border: 1px solid #394264;
-        border-radius: 4px;
-        text-decoration: none;
-        background: #394264;
-        color: #fff;
-        cursor: pointer;
-      }
-      .join-button-container a:hover,
-      .join-button-container button:hover {
-        background: #506089;
+        flex-direction: column;
+        gap: 5px;
       }
 
-      /* Toast container */
-      #toast {
-        position: fixed;
-        left: 50%;
-        bottom: 30px;
-        transform: translateX(-50%);
-        background: rgba(51, 51, 51, 0.9);
-        color: #fff;
-        padding: 10px 15px;
-        border-radius: 4px;
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.3s ease, bottom 0.3s ease;
-        z-index: 9999;
+      .join-button, .copy-button {
+        width: 100%;
+        text-align: center;
       }
-      /* The "show" class triggers visibility */
-      #toast.show {
-        opacity: 1;
-        bottom: 50px; /* animate it up a bit */
-      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Giving School Zoom Links Watcher</h1>
 
-      /* Mobile responsiveness */
-      @media (max-width: 600px) {
-        .account-header {
-          flex-direction: column;
-          align-items: flex-start;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <h1>No-Fixed-Time Recurring Meetings</h1>
-
-    <div class="container">
-      <% if (usersData && usersData.length > 0) { %>
-        <% usersData.forEach(user => { %>
-          <div class="account-box">
-            <div class="account-header">
-              <div class="account-name">
-                User: <%= user.userName %> (<%= user.userEmail %>)
-              </div>
-              <div>
-                <% if (user.isAccountInUse) { %>
-                  <span class="status-badge in-use">Account in Use (2+ live)</span>
-                <% } else { %>
-                  <span class="status-badge not-in-use">Not in Use</span>
-                <% } %>
-              </div>
+  <div class="container">
+    <% if (usersData && usersData.length > 0) { %>
+      <% usersData.forEach(user => { %>
+        <div class="account-box">
+          <div class="account-header">
+            <div class="account-name">
+              User: <%= user.userName %> (<%= user.userEmail %>)
             </div>
+            <div>
+              <% if (user.isAccountInUse) { %>
+                <span class="status-badge in-use">Account in Use (2+ Live)</span>
+              <% } else { %>
+                <span class="status-badge not-in-use">Not in Use</span>
+              <% } %>
+            </div>
+          </div>
 
-            <table>
-              <thead>
-                <tr>
-                  <th style="width: 20%;">Meeting ID</th>
-                  <th style="width: 30%;">Topic</th>
-                  <th style="width: 10%;">Live?</th>
-                  <th style="width: 40%;">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <% if (user.recurringMeetings && user.recurringMeetings.length > 0) { %>
-                  <% user.recurringMeetings.forEach(m => { %>
-                    <tr>
-                      <td><%= m.meetingId %></td>
-                      <td><%= m.topic %></td>
-                      <td>
-                        <% if (m.isLive) { %>
-                          <span class="live">LIVE</span>
-                        <% } else { %>
-                          <span class="not-live">Not Live</span>
-                        <% } %>
-                      </td>
-                      <td>
-                        <% if (m.joinUrl) { %>
-                          <div class="join-button-container">
-                            <a href="<%= m.joinUrl %>" target="_blank">Join</a>
-                            <button onclick="copyLink('<%= m.joinUrl %>')">Copy</button>
-                          </div>
-                        <% } else { %>
-                          <em>No join URL</em>
-                        <% } %>
-                      </td>
-                    </tr>
-                  <% }) %>
-                <% } else { %>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 20%;">Meeting ID</th>
+                <th style="width: 30%;">Topic</th>
+                <th style="width: 10%;">Available</th>
+                <th style="width: 40%;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (user.recurringMeetings && user.recurringMeetings.length > 0) { %>
+                <% user.recurringMeetings.forEach(m => { %>
                   <tr>
-                    <td colspan="4" style="text-align: center;">
-                      <em>No No-Fixed-Time meetings found for this user.</em>
+                    <td><%= m.meetingId %></td>
+                    <td><%= m.topic %></td>
+                    <td>
+                      <% if (m.isAvailable) { %>
+                        <span class="busy">Busy</span>
+                      <% } else { %>
+                        <span class="available">Available</span>
+                      <% } %>
+                    </td>
+                    <td>
+                      <% if (m.joinUrl) { %>
+                        <div class="join-button-container">
+                          <a href="<%= m.joinUrl %>" target="_blank" class="join-button">Join</a>
+                          <button class="copy-button" onclick="copyLink('<%= m.joinUrl %>')">Copy</button>
+                        </div>
+                      <% } else { %>
+                        <em>No join URL</em>
+                      <% } %>
                     </td>
                   </tr>
-                <% } %>
-              </tbody>
-            </table>
-          </div>
-        <% }) %>
-      <% } else { %>
-        <p>No users or no recurring meetings found.</p>
-      <% } %>
-    </div>
+                <% }) %>
+              <% } else { %>
+                <tr>
+                  <td colspan="4" style="text-align: center;">
+                    <em>No No-Fixed-Time meetings found for this user.</em>
+                  </td>
+                </tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      <% }) %>
+    <% } else { %>
+      <p>No users or no recurring meetings found.</p>
+    <% } %>
+  </div>
 
-    <!-- Toast element -->
-    <div id="toast">Copied!</div>
+  <!-- Toast Element -->
+  <div id="toast">Copied!</div>
 
-    <script>
-      // Copy link to clipboard, then show toast
-      function copyLink(link) {
-        navigator.clipboard
-          .writeText(link)
-          .then(() => {
-            showToast(`Link copied: ${link}`);
-          })
-          .catch(err => {
-            console.error("Failed to copy link:", err);
-          });
+  <script>
+    // Copy link to clipboard and show toast
+    function copyLink(link) {
+      if (!navigator.clipboard) {
+        fallbackCopyTextToClipboard(link);
+        return;
+      }
+      navigator.clipboard.writeText(link).then(() => {
+        showToast('Link copied!');
+      }).catch(err => {
+        console.error('Failed to copy: ', err);
+        showToast('Failed to copy!');
+      });
+    }
+
+    // Fallback method for older browsers
+    function fallbackCopyTextToClipboard(text) {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';  // Prevent scrolling to bottom of page
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+
+      try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+          showToast('Link copied!');
+        } else {
+          showToast('Failed to copy!');
+        }
+      } catch (err) {
+        console.error('Fallback: Oops, unable to copy', err);
+        showToast('Failed to copy!');
       }
 
-      // Show toast for a few seconds
-      function showToast(message) {
-        const toastEl = document.getElementById('toast');
-        toastEl.textContent = message;
-        toastEl.classList.add('show');
+      document.body.removeChild(textArea);
+    }
 
-        // Hide after 3 seconds
-        setTimeout(() => {
-          toastEl.classList.remove('show');
-        }, 3000);
-      }
-    </script>
-  </body>
+    // Show toast notification
+    function showToast(message) {
+      const toastEl = document.getElementById('toast');
+      toastEl.textContent = message;
+      toastEl.classList.add('show');
+
+      // Hide after 3 seconds
+      setTimeout(() => {
+        toastEl.classList.remove('show');
+      }, 3000);
+    }
+  </script>
+</body>
 </html>
